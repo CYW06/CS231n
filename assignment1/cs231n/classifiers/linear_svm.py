@@ -37,6 +37,9 @@ def svm_loss_naive(W, X, y, reg):
             margin = scores[j] - correct_class_score + 1  # note delta = 1
             if margin > 0:
                 loss += margin
+                dW[:,j] += X[i]
+                dW[:,y[i]] -= X[i]
+
 
     # Right now the loss is a sum over all training examples, but we want it
     # to be an average instead so we divide by num_train.
@@ -54,15 +57,16 @@ def svm_loss_naive(W, X, y, reg):
     # code above to compute the gradient.                                       #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    dW = dW / num_train
 
-    pass
+    dW += 2 * reg * W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW
 
 
-def svm_loss_vectorized(W, X, y, reg):
+def svm_loss_vectorized(W, X,y, reg):
     """
     Structured SVM loss function, vectorized implementation.
 
@@ -78,7 +82,12 @@ def svm_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    num_train = X.shape[0]
+    Y_hat = X.dot(W)
+    y_hat_true = Y_hat[range(num_train),y].reshape(num_train,-1)
+    margins = np.maximum(0,Y_hat-y_hat_true+1)
+    margins[range(num_train),y] = 0
+    loss = margins.sum() / X.shape[0] -1 + reg*np.sum(W**2)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -92,8 +101,10 @@ def svm_loss_vectorized(W, X, y, reg):
     # loss.                                                                     #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    dW = (margins>0).astype(int)
+    dW[range(num_train), y] -= dW.sum(axis=1) # update gradient to include correct labels
+    dW = X.T @ dW / num_train + 2 * reg * W 
+    
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
