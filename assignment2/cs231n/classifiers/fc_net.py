@@ -1,5 +1,6 @@
 from builtins import range
 from builtins import object
+from matplotlib.transforms import affine_transform
 import numpy as np
 
 from ..layers import *
@@ -73,9 +74,12 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
-
+        for i,hidden_dim in enumurate(hidden_dims):
+          self.params[f'W{i+1}'] = np.random.normal(loc=0,scale=weight_scale,size=(input_dim,hidden_dim))
+          self.params[f'b{i+1}'] = np.zero(hidden_dim)
+          input_dim = hidden_dim      
+        self.params[f'W{self.num_layers}'] = np.random.normal(loc=0,scale=weight_scale,size=(hidden_dims[-1],num_classes))
+        self.params[f'b{self.num_layers}'] = np.zero(num_classes)
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -148,7 +152,13 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        cache = {}
+        for i in self.num_layers:
+          w,b = self.params[f'W{i+1}'],self.params[f'b{i+1}']
+          scores , cache[f'i+1'] = generic_forward(x,w,b)
+          x = scores
+        w,b = self.params[f'W{self.num_layers}'],self.params[f'b{self.num_layers}']
+        scores,cache[f'self.num_layers'] = affine_forward(scores,w,b)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -175,7 +185,7 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################

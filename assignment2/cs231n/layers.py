@@ -25,7 +25,9 @@ def affine_forward(x, w, b):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    num_train = x.shape[0]
+    X_reshaped = x.reshape(num_train,-1)
+    out = X_reshaped @ w + b
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -57,7 +59,9 @@ def affine_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx = (dout @ W.T).reshape(x.shape) # (N,M)(M,D) (N,D)
+    dw = X_reshaped.T @ dout # (N,D)  (N,M)   (D,M)      
+    db = dout.sum(axis=0)   
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -82,7 +86,7 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.maximum(0,x)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -108,7 +112,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx = dout * (x>0).astype(int)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -136,8 +140,13 @@ def softmax_loss(x, y):
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    N = x.shape[0]
+    x_exp = np.exp(x)
+    softmax = x_exp / np.sum(x_exp,axis=1).reshape(x.shape[0],1)
+    loss = np.sum(-np.log(softmax(range(N),y))) / N
 
-    pass
+    softmax[range(N),y] -= 1
+    dx = softmax / N
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -215,12 +224,18 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        sample_mean = np.mean(x,axis=0)
+        sample_var = np.var(x,axis=0)
+        
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
 
-        pass
-
+        x_hat = (x - sample_mean)/np.sqrt(sample_var + eps)
+        out = gamma * x_norm + beta
+        cache = x,x_hat,gamma,beta,sample_mean,sample_var,eps
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
-        #                           END OF YOUR CODE                          #
+        # END OF YOUR CODE                          #
         #######################################################################
     elif mode == "test":
         #######################################################################
@@ -231,7 +246,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        x_norm = (x - running_mean) / np.sqrt(running_var+eps)
+        out = gamma * x_norm + beta
+        return out
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -272,11 +289,31 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x,x_hat,gamma,beta,sample_mean,sample_var,eps = cache
+
+    N,D = x.shape
+
+    # 计算相对于gamma的梯度
+    dgamma = dout*(x_hat).sum(axis=0)
+
+    # 计算相对于beta的梯度
+    dbeta = dout.sum(axis=0)
+    
+    # 计算相对于x_hat的梯度
+    dx_hat = dout * gamma
+
+    # 计算相对于var的梯度
+    dvar = np.sum(dx_hat * (x-sample_mean)*-0.5*(sample_var+eps)**(-1.5),axis=0)
+
+    # 计算相对于mean的梯度
+    dmu = np.sum(dx_hat * -(sample_var+eps)**(-0.5),axis=0)
+
+    # 计算相对于x的梯度
+    dx = dmu / N + dvar * 2 * (x-sample_mean)/N + dx_hat/np.sqrt(sample_var+eps)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
-    #                             END OF YOUR CODE                            #
+    #        END OF YOUR CODE                            #
     ###########################################################################
 
     return dx, dgamma, dbeta
@@ -431,7 +468,8 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        mask = (np.random.rand(*x.shape)<p)/p
+        out = x * mask
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -443,7 +481,7 @@ def dropout_forward(x, dropout_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        out = x
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -473,7 +511,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        dx = dx * mask 
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
