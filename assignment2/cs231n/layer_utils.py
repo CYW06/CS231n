@@ -49,23 +49,27 @@ def generic_forward(x,w,b,gamma=None,beta=None,bn_param=None,dropout_param=None,
 
   # Affine forward is must
   out,fc_cache = affine_forward(x,w,b)
+  
   if not last:
+    # If it has normalization layer we normalize outputs: if it bn_param
+    # has mode (train | test), it's batchnorm, otherwise, it's layernorm
     if bn_param is not None:
       if 'mode' in bn_param:
         out, bn_cache = batchnorm_forward(out, gamma, beta, bn_param)
       else:
         out, ln_cache = layernorm_forward(out, gamma, beta, bn_param)
-    
+
+        # Pass the outputs through activation
     out, relu_cache = relu_forward(out) # perform relu
 
-    # Use dropout if we are given its parameters
+        # Use dropout if we are given its parameters
     if dropout_param is not None:
       out, dropout_cache = dropout_forward(out, dropout_param)
     
     # Prepare cache for backward pass
-    cache = fc_cache, bn_cache, ln_cache, relu_cache, dropout_cache
+  cache = fc_cache, bn_cache, ln_cache, relu_cache, dropout_cache
 
-    return out, cache
+  return out, cache
 
 def generic_backward(dout,cache):
   """Backward pass for the affine-bn/ln?-relu-dropout? convenience layer.

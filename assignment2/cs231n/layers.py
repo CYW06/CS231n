@@ -53,13 +53,15 @@ def affine_backward(dout, cache):
     - db: Gradient with respect to b, of shape (M,)
     """
     x, w, b = cache
+    N = x.shape[0]
+    X_reshaped = x.reshape(N,-1)
     dx, dw, db = None, None, None
     ###########################################################################
     # TODO: Copy over your solution from Assignment 1.                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    dx = (dout @ W.T).reshape(x.shape) # (N,M)(M,D) (N,D)
+    dx = (dout @ w.T).reshape(x.shape) # (N,M)(M,D) (N,D)
     dw = X_reshaped.T @ dout # (N,D)  (N,M)   (D,M)      
     db = dout.sum(axis=0)   
 
@@ -141,9 +143,9 @@ def softmax_loss(x, y):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     N = x.shape[0]
-    x_exp = np.exp(x)
-    softmax = x_exp / np.sum(x_exp,axis=1).reshape(x.shape[0],1)
-    loss = np.sum(-np.log(softmax(range(N),y))) / N
+    x_exp = np.exp(x-np.max(x,axis=1,keepdims=True))
+    softmax = x_exp / np.sum(x_exp,axis=1).reshape(N,1)
+    loss = np.sum(-np.log(softmax[range(N),y])) / N
 
     softmax[range(N),y] -= 1
     dx = softmax / N
@@ -202,60 +204,64 @@ def batchnorm_forward(x, gamma, beta, bn_param):
 
     out, cache = None, None
     if mode == "train":
-        #######################################################################
-        # TODO: Implement the training-time forward pass for batch norm.      #
-        # Use minibatch statistics to compute the mean and variance, use      #
-        # these statistics to normalize the incoming data, and scale and      #
-        # shift the normalized data using gamma and beta.                     #
-        #                                                                     #
-        # You should store the output in the variable out. Any intermediates  #
-        # that you need for the backward pass should be stored in the cache   #
-        # variable.                                                           #
-        #                                                                     #
-        # You should also use your computed sample mean and variance together #
-        # with the momentum variable to update the running mean and running   #
-        # variance, storing your result in the running_mean and running_var   #
-        # variables.                                                          #
-        #                                                                     #
-        # Note that though you should be keeping track of the running         #
-        # variance, you should normalize the data based on the standard       #
-        # deviation (square root of variance) instead!                        #
-        # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
-        # might prove to be helpful.                                          #
-        #######################################################################
-        # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        sample_mean = np.mean(x,axis=0)
-        sample_var = np.var(x,axis=0)
-        
-        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
-        running_var = momentum * running_var + (1 - momentum) * sample_var
+      #######################################################################
+      # TODO: Implement the training-time forward pass for batch norm.      #
+      # Use minibatch statistics to compute the mean and variance, use      #
+      # these statistics to normalize the incoming data, and scale and      #
+      # shift the normalized data using gamma and beta.                     #
+      #                                                                     #
+      # You should store the output in the variable out. Any intermediates  #
+      # that you need for the backward pass should be stored in the cache   #
+      # variable.                                                           #
+      #                                                                     #
+      # You should also use your computed sample mean and variance together #
+      # with the momentum variable to update the running mean and running   #
+      # variance, storing your result in the running_mean and running_var   #
+      # variables.                                                          #
+      #                                                                     #
+      # Note that though you should be keeping track of the running         #
+      # variance, you should normalize the data based on the standard       #
+      # deviation (square root of variance) instead!                        #
+      # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
+      # might prove to be helpful.                                          #
+      #######################################################################
+      # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+      sample_mean = np.mean(x,axis=0)
+      sample_var = np.var(x,axis=0)
+      std = np.sqrt(sample_var + eps)
+      
+      x_hat = (x - sample_mean) / std
+      out = gamma * x_hat + beta
 
-        x_hat = (x - sample_mean)/np.sqrt(sample_var + eps)
-        out = gamma * x_norm + beta
-        cache = x,x_hat,gamma,beta,sample_mean,sample_var,eps
-        # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        #######################################################################
-        # END OF YOUR CODE                          #
-        #######################################################################
+      shape = bn_param.get('shape', (N, D))   # reshape used in backprop
+      axis = bn_param.get('axis', 0)     # axis to sum used in backprop
+      cache = x, sample_mean , sample_var, std, gamma, x_hat, shape, axis
+
+      if axis == 0:                                                    # if not batchnorm
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean # update overall mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var  # update overall variance
+      # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+      #######################################################################
+      # END OF YOUR CODE                          #
+      #######################################################################
     elif mode == "test":
-        #######################################################################
-        # TODO: Implement the test-time forward pass for batch normalization. #
-        # Use the running mean and variance to normalize the incoming data,   #
-        # then scale and shift the normalized data using gamma and beta.      #
-        # Store the result in the out variable.                               #
-        #######################################################################
-        # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+      #######################################################################
+      # TODO: Implement the test-time forward pass for batch normalization. #
+      # Use the running mean and variance to normalize the incoming data,   #
+      # then scale and shift the normalized data using gamma and beta.      #
+      # Store the result in the out variable.                               #
+      #######################################################################
+      # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        x_norm = (x - running_mean) / np.sqrt(running_var+eps)
-        out = gamma * x_norm + beta
-        return out
+      x_norm = (x - running_mean) / np.sqrt(running_var+eps)
+      out = gamma * x_norm + beta
 
-        # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        #######################################################################
-        #                          END OF YOUR CODE                           #
-        #######################################################################
+      # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+      #######################################################################
+      #                          END OF YOUR CODE                           #
+      #######################################################################
     else:
-        raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
+      raise ValueError('Invalid forward batchnorm mode "%s"' % mode)
 
     # Store the updated running means back into bn_param
     bn_param["running_mean"] = running_mean
@@ -289,27 +295,18 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    x,x_hat,gamma,beta,sample_mean,sample_var,eps = cache
+    x, mu, var, std, gamma, x_hat, shape, axis = cache          # expand cache
 
-    N,D = x.shape
+    dbeta = dout.reshape(shape, order='F').sum(axis)            # derivative w.r.t. beta
+    dgamma = (dout * x_hat).reshape(shape, order='F').sum(axis) # derivative w.r.t. gamma
 
-    # 计算相对于gamma的梯度
-    dgamma = dout*(x_hat).sum(axis=0)
-
-    # 计算相对于beta的梯度
-    dbeta = dout.sum(axis=0)
-    
-    # 计算相对于x_hat的梯度
-    dx_hat = dout * gamma
-
-    # 计算相对于var的梯度
-    dvar = np.sum(dx_hat * (x-sample_mean)*-0.5*(sample_var+eps)**(-1.5),axis=0)
-
-    # 计算相对于mean的梯度
-    dmu = np.sum(dx_hat * -(sample_var+eps)**(-0.5),axis=0)
-
-    # 计算相对于x的梯度
-    dx = dmu / N + dvar * 2 * (x-sample_mean)/N + dx_hat/np.sqrt(sample_var+eps)
+    dx_hat = dout * gamma                                       # derivative w.t.r. x_hat
+    dstd = -np.sum(dx_hat * (x-mu), axis=0) / (std**2)          # derivative w.t.r. std
+    dvar = 0.5 * dstd / std                                     # derivative w.t.r. var
+    dx1 = dx_hat / std + 2 * (x-mu) * dvar / len(dout)          # partial derivative w.t.r. dx
+    dmu = -np.sum(dx1, axis=0)                                  # derivative w.t.r. mu
+    dx2 = dmu / len(dout)                                       # partial derivative w.t.r. dx
+    dx = dx1 + dx2
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -343,7 +340,16 @@ def batchnorm_backward_alt(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    _, _, _, std, gamma, x_hat, shape, axis = cache # expand cache
+    S = lambda x: x.sum(axis=0)                     # helper function
+    
+    dbeta = dout.reshape(shape, order='F').sum(axis)            # derivative w.r.t. beta
+    dgamma = (dout * x_hat).reshape(shape, order='F').sum(axis) # derivative w.r.t. gamma
+    
+    dx = dout * gamma / (len(dout) * std)          # temporarily initialize scale value
+    dx = len(dout)*dx  - S(dx*x_hat)*x_hat - S(dx) # derivative w.r.t. unnormalized x
+
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -485,7 +491,7 @@ def dropout_forward(x, dropout_param):
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
-        #                            END OF YOUR CODE                         #
+        #           END OF YOUR CODE              #
         #######################################################################
 
     cache = (dropout_param, mask)
@@ -511,7 +517,7 @@ def dropout_backward(dout, cache):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        dx = dx * mask 
+        dx = dout * mask 
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################

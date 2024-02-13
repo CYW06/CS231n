@@ -74,12 +74,14 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-        for i,hidden_dim in enumurate(hidden_dims):
-          self.params[f'W{i+1}'] = np.random.normal(loc=0,scale=weight_scale,size=(input_dim,hidden_dim))
-          self.params[f'b{i+1}'] = np.zero(hidden_dim)
-          input_dim = hidden_dim      
-        self.params[f'W{self.num_layers}'] = np.random.normal(loc=0,scale=weight_scale,size=(hidden_dims[-1],num_classes))
-        self.params[f'b{self.num_layers}'] = np.zero(num_classes)
+        for i,(k,m) in enumerate(zip([input_dim,*hidden_dims],[*hidden_dims,num_classes])):
+          self.params[f'W{i+1}'] = np.random.randn(k,m) * weight_scale
+          self.params[f'b{i+1}'] = np.zeros(m)
+
+          if self.normalization is not None and i < self.num_layers - 1:
+            self.params[f'gamma{i+1}'] = np.ones(m)
+            self.params[f'beta{i+1}'] = np.zeros(m)
+
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -136,7 +138,7 @@ class FullyConnectedNet(object):
             self.dropout_param["mode"] = mode
         if self.normalization == "batchnorm":
             for bn_param in self.bn_params:
-                bn_param["mode"] = mode
+              bn_param["mode"] = mode
         scores = None
         ############################################################################
         # TODO: Implement the forward pass for the fully connected net, computing  #
@@ -153,12 +155,18 @@ class FullyConnectedNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
         cache = {}
-        for i in self.num_layers:
-          w,b = self.params[f'W{i+1}'],self.params[f'b{i+1}']
-          scores , cache[f'i+1'] = generic_forward(x,w,b)
-          x = scores
-        w,b = self.params[f'W{self.num_layers}'],self.params[f'b{self.num_layers}']
-        scores,cache[f'self.num_layers'] = affine_forward(scores,w,b)
+
+        for l in range(self.num_layers):
+
+          keys = [f'W{l+1}',f'b{l+1}',f'gamma{l+1}',f'beta{l+1}']
+          w,b,gamma,beta = (self.params.get(k,None) for k in keys)
+
+          bn = self.bn_params[l] if gamma is not None else None  # bn params if exist
+          do = self.dropout_param if self.use_dropout else None  # do params if exist
+
+          X,cache[l] = generic_forward(X,w,b,gamma,beta,bn,do,l==self.num_layers-1)
+
+        scores = X
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -167,7 +175,7 @@ class FullyConnectedNet(object):
 
         # If test mode return early.
         if mode == "test":
-            return scores
+          return scores
 
         loss, grads = 0.0, {}
         ############################################################################
@@ -184,12 +192,22 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        loss,dout = softmax_loss(scores,y)
+        loss += 0.5 * self.reg * np.sum([np.sum(W**2) for k,W in self.params.items() if 'W' in k])
 
-        
+        for l in reversed(range(self.num_layers)):
+          dout,dw,db,dgamma,dbeta = generic_backward(dout,cache[l])
+          grads[f'W{l+1}'] = dw + self.reg * self.params[f'W{l+1}']
+          grads[f'b{l+1}'] = db
+
+          if dgamma is not None and l < self.num_layers -1:
+            grads[f'gamma{l+1}'] = dgamma
+            grads[f'beta{l+1}'] = dbeta
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
-        #                             END OF YOUR CODE                             #
+        #   END OF YOUR CODE                        #
         ############################################################################
 
         return loss, grads
